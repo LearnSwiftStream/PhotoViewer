@@ -12,6 +12,7 @@ import Photos
 enum SourceOptions: String {
     case local = "Your Photo Library"
     case aww = "reddit/r/aww"
+    case earth = "reddit/r/earthPorn"
 
     static func url(for option: SourceOptions) -> URL? {
         switch option {
@@ -19,10 +20,12 @@ enum SourceOptions: String {
             return nil
         case .aww:
             return URL(string: "http://www.reddit.com/r/aww.json")
+        case .earth:
+            return URL(string: "http://www.reddit.com/r/earthPorn.json")
         }
     }
 
-    static let allValues: [SourceOptions] = [.local, .aww]
+    static let allValues: [SourceOptions] = [.local, .aww, .earth]
 }
 
 class MainViewController: UIViewController {
@@ -60,6 +63,7 @@ class MainViewController: UIViewController {
     }
 
     func getAllPhotos() {
+        self.allPhotos = []
         let fetchOptions = PHFetchOptions()
         let assets = PHAsset.fetchAssets(with: .image, options: fetchOptions)
 
@@ -104,14 +108,48 @@ class MainViewController: UIViewController {
     }
 
     func getPhotos(for url: URL) {
-        // fetch subreddit
-        // parse data
-        // update collectionView
+
+        self.allPhotos = []
+        let task = URLSession.shared.dataTask(with: url) { (data, _, error) in
+
+            guard let data = data,
+                let json = try? JSONSerialization.jsonObject(with: data, options: .mutableLeaves) as? [String: AnyObject] else { return }
+            guard let postData = json?["data"] as? [String: AnyObject],
+                let posts = postData["children"] as? [[String: AnyObject]] else { return }
+
+            var imageUrls = [String]()
+
+            for post in posts {
+                guard let postData = post["data"] as? [String: AnyObject] else { return }
+
+                if let url = postData["url"] as? String, url.contains(".jpg") || url.contains(".png") || url.contains(".gif") && !url.contains(".gifv") {
+                    imageUrls.append(url)
+                }
+            }
+
+            let group = DispatchGroup()
+            for imageUrlString in imageUrls {
+                guard let imageUrl = URL(string: imageUrlString) else { return }
+                group.enter()
+                let subTask = URLSession.shared.dataTask(with: imageUrl) { (imageData, _, error) in
+                    group.leave()
+                    guard let imageData = imageData, let image = UIImage(data: imageData) else { return }
+                    self.allPhotos.append(image)
+                }
+                subTask.resume()
+            }
+
+            group.notify(queue: DispatchQueue.main, execute: {
+                self.initialCollectionSetup()
+            })
+        }
+
+        task.resume()
     }
 
 }
 
-
+// MARK: - UIPickerViewDataSource
 extension MainViewController: UIPickerViewDataSource {
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
         return 1
@@ -122,6 +160,7 @@ extension MainViewController: UIPickerViewDataSource {
     }
 }
 
+// MARK: - UIPickerViewDelegate
 extension MainViewController: UIPickerViewDelegate {
 
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
@@ -132,12 +171,20 @@ extension MainViewController: UIPickerViewDelegate {
 
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         guard row < SourceOptions.allValues.count else { return }
+        let selectedOption = SourceOptions.allValues[row]
 
-        sourceTextField.text = SourceOptions.allValues[row].rawValue
+        sourceTextField.text = selectedOption.rawValue
         sourceTextField.resignFirstResponder()
+
+        if selectedOption == .local {
+            getAllPhotos()
+        } else if let url = SourceOptions.url(for: selectedOption) {
+            getPhotos(for: url)
+        }
     }
 }
 
+// MARK: - UICollectionViewDataSource
 extension MainViewController: UICollectionViewDataSource {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return allPhotos.count

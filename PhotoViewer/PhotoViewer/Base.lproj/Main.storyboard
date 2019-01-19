@@ -38,7 +38,7 @@
                                     </collectionViewCell>
                                 </cells>
                             </collectionView>
-                            <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="sbm-E8-eAg">
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="sbm-E8-eAg">
                                 <rect key="frame" x="16" y="213.5" width="343" height="240"/>
                                 <constraints>
                                     <constraint firstAttribute="width" secondItem="sbm-E8-eAg" secondAttribute="height" multiplier="343:240" id="5DM-md-mRX"/>
